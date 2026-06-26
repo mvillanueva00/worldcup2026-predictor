@@ -46,12 +46,24 @@ def using_google_sheets() -> bool:
         return False
 
 
+@st.cache_data(ttl=30, show_spinner=False)
 def load_sheet_tab(tab_name: str) -> pd.DataFrame:
     """
     Loads a single tab as a DataFrame. Falls back to data/<tab_name>.csv
     if Google Sheets isn't configured, or if anything goes wrong while
     talking to the Sheets API (so the app never hard-crashes for your
     coworkers if a credential expires mid-tournament).
+
+    Cached for 30 seconds: every Streamlit interaction (a slider move, a
+    button click) re-runs the whole script, and without caching that
+    means a fresh API call to Google for every tab on every single click.
+    With several people using the app at once, that blows through
+    Google Sheets' free-tier rate limit (60 read requests/minute) almost
+    immediately. Caching means the app only actually re-fetches from
+    Google once every 30 seconds, regardless of how many people are
+    clicking around - new results/picks will show up within ~30 seconds
+    instead of instantly, which is a small tradeoff for the app not
+    breaking under normal use.
     """
     if not using_google_sheets():
         return _load_csv_fallback(tab_name)
@@ -109,6 +121,7 @@ def append_result_row(team_a, team_b, score_a, score_b, stage, date=None):
     worksheet = sh.worksheet("results")
     date_str = date.isoformat() if hasattr(date, "isoformat") else (date or "")
     worksheet.append_row([team_a, team_b, score_a, score_b, stage, date_str])
+    load_sheet_tab.clear()
 
 
 def _get_or_create_worksheet(sh, tab_name, header_row):
@@ -148,6 +161,7 @@ def append_pick_rows(name, match_picks: dict):
     timestamp = datetime.datetime.now().isoformat(timespec="seconds")
     rows = [[name, match_id, team, timestamp] for match_id, team in match_picks.items()]
     worksheet.append_rows(rows)
+    load_sheet_tab.clear()
 
 
 def append_participant(name):
@@ -165,6 +179,7 @@ def append_participant(name):
     sh = gc.open_by_url(st.secrets["sheet_url"])
     worksheet = _get_or_create_worksheet(sh, "participants", ["name"])
     worksheet.append_row([name])
+    load_sheet_tab.clear()
 
 
 def remove_participant(name):
@@ -187,3 +202,4 @@ def remove_participant(name):
     for row_idx in range(len(all_values), 1, -1):  # skip header row 1
         if all_values[row_idx - 1] and all_values[row_idx - 1][0].strip() == name.strip():
             worksheet.delete_rows(row_idx)
+    load_sheet_tab.clear()

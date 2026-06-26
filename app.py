@@ -31,6 +31,7 @@ from sheets_io import (
     append_result_row,
     append_pick_rows,
     append_participant,
+    remove_participant,
     using_google_sheets,
 )
 
@@ -428,6 +429,27 @@ with tab_picks:
                 for n in roster
             ]
             st.dataframe(pd.DataFrame(status_rows), use_container_width=True, hide_index=True)
+
+            st.markdown("**Remove a participant:**")
+            remove_col1, remove_col2 = st.columns([3, 1])
+            with remove_col1:
+                name_to_remove = st.selectbox(
+                    "Select a name to remove", roster, key="remove_participant_select"
+                )
+            with remove_col2:
+                st.write("")  # vertical spacer to align the button with the dropdown
+                confirm_remove = st.checkbox("Confirm", key="confirm_remove_checkbox")
+            if name_to_remove in locked_names:
+                st.caption(
+                    f"\u26A0\ufe0f {name_to_remove} already submitted picks - removing "
+                    f"them from the roster won't delete their saved picks."
+                )
+            if st.button("Remove from Roster", disabled=not confirm_remove):
+                try:
+                    remove_participant(name_to_remove)
+                    st.success(f"Removed {name_to_remove}. Refresh to update the list.")
+                except RuntimeError as e:
+                    st.error(str(e))
         else:
             st.caption("No participants added yet.")
 

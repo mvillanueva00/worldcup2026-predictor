@@ -165,3 +165,25 @@ def append_participant(name):
     sh = gc.open_by_url(st.secrets["sheet_url"])
     worksheet = _get_or_create_worksheet(sh, "participants", ["name"])
     worksheet.append_row([name])
+
+
+def remove_participant(name):
+    """
+    Removes a name from the 'participants' roster tab. If the same name
+    appears more than once (shouldn't normally happen), removes all
+    matching rows.
+    """
+    if not using_google_sheets():
+        raise RuntimeError(
+            "Google Sheets isn't configured yet, so the roster can't be "
+            "updated."
+        )
+    gc = _get_gsheet_client()
+    sh = gc.open_by_url(st.secrets["sheet_url"])
+    worksheet = _get_or_create_worksheet(sh, "participants", ["name"])
+
+    all_values = worksheet.get_all_values()
+    # Delete from the bottom up so row numbers don't shift mid-loop
+    for row_idx in range(len(all_values), 1, -1):  # skip header row 1
+        if all_values[row_idx - 1] and all_values[row_idx - 1][0].strip() == name.strip():
+            worksheet.delete_rows(row_idx)

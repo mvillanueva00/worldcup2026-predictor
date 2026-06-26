@@ -24,6 +24,30 @@ KNOCKOUT_ROUNDS_ORDER = [
 ]
 
 
+def resolve_slot(team_field, resolved: dict):
+    """
+    Resolves a single bracket cell to an actual team name.
+    - "Winner M#" -> looks up M#'s resolved winner (None if not decided yet)
+    - "TBD" -> None (not yet known)
+    - anything else -> returned as-is (a real team name)
+    """
+    if isinstance(team_field, str) and team_field.startswith("Winner "):
+        ref_id = team_field.replace("Winner ", "").strip()
+        return resolved.get(ref_id)
+    if isinstance(team_field, str) and team_field.strip().upper() == "TBD":
+        return None
+    return team_field
+
+
+def sorted_bracket(bracket_df: pd.DataFrame) -> pd.DataFrame:
+    """Returns the bracket sorted into proper round order (R32 -> Final)."""
+    df = bracket_df.copy()
+    df["_order"] = df["round"].apply(
+        lambda r: KNOCKOUT_ROUNDS_ORDER.index(r) if r in KNOCKOUT_ROUNDS_ORDER else 99
+    )
+    return df.sort_values(["_order", "match_id"]).drop(columns="_order")
+
+
 def simulate_single_match(team_a, team_b, ratings, home_advantage=0):
     """
     Simulate one knockout match (no draws allowed - extra time/penalties
@@ -43,24 +67,11 @@ def run_bracket_once(bracket_df: pd.DataFrame, ratings: dict) -> dict:
     Returns dict: match_id -> winning team name, plus 'CHAMPION' key.
     """
     winners = {}
-
-    df = bracket_df.copy()
-    df["round_order"] = df["round"].apply(
-        lambda r: KNOCKOUT_ROUNDS_ORDER.index(r) if r in KNOCKOUT_ROUNDS_ORDER else 99
-    )
-    df = df.sort_values(["round_order", "match_id"])
-
-    def resolve(team_field):
-        if isinstance(team_field, str) and team_field.startswith("Winner "):
-            ref_id = team_field.replace("Winner ", "").strip()
-            return winners.get(ref_id, None)
-        if isinstance(team_field, str) and team_field.strip().upper() == "TBD":
-            return None
-        return team_field
+    df = sorted_bracket(bracket_df)
 
     for _, row in df.iterrows():
-        team_a = resolve(row["team_a"])
-        team_b = resolve(row["team_b"])
+        team_a = resolve_slot(row["team_a"], winners)
+        team_b = resolve_slot(row["team_b"], winners)
         if team_a is None or team_b is None:
             # Dependency not yet resolved (shouldn't happen if sorted right)
             continue

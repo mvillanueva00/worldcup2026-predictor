@@ -78,6 +78,13 @@ def load_sheet_tab(tab_name: str) -> pd.DataFrame:
 
         return df
     except Exception as e:
+        import gspread
+
+        if isinstance(e, gspread.exceptions.WorksheetNotFound):
+            # Normal pre-launch state (e.g. nobody has submitted a bracket
+            # pick yet) - no need to alarm anyone with a warning banner.
+            return _load_csv_fallback(tab_name)
+
         st.warning(
             f"Couldn't reach the Google Sheet for '{tab_name}' tab "
             f"({e}). Falling back to local CSV data."
@@ -102,3 +109,59 @@ def append_result_row(team_a, team_b, score_a, score_b, stage, date=None):
     worksheet = sh.worksheet("results")
     date_str = date.isoformat() if hasattr(date, "isoformat") else (date or "")
     worksheet.append_row([team_a, team_b, score_a, score_b, stage, date_str])
+
+
+def _get_or_create_worksheet(sh, tab_name, header_row):
+    """
+    Opens a worksheet, creating it with the given header row if it
+    doesn't exist yet (used for the 'picks' tab, which isn't part of
+    the original Sheet template).
+    """
+    import gspread
+
+    try:
+        return sh.worksheet(tab_name)
+    except gspread.exceptions.WorksheetNotFound:
+        ws = sh.add_worksheet(title=tab_name, rows=500, cols=len(header_row) + 2)
+        ws.append_row(header_row)
+        return ws
+
+
+def append_pick_rows(name, match_picks: dict):
+    """
+    Saves one person's complete bracket picks (every match, Round of 32
+    through the Final) to the 'picks' tab. The Final's pick IS their
+    champion pick - no separate field needed. Creates the 'picks' tab
+    automatically the first time anyone submits.
+    """
+    if not using_google_sheets():
+        raise RuntimeError(
+            "Google Sheets isn't configured yet, so picks can't be saved. "
+            "Try again once the Sheet is connected."
+        )
+    import datetime
+
+    gc = _get_gsheet_client()
+    sh = gc.open_by_url(st.secrets["sheet_url"])
+    worksheet = _get_or_create_worksheet(sh, "picks", ["name", "match_id", "pick", "timestamp"])
+
+    timestamp = datetime.datetime.now().isoformat(timespec="seconds")
+    rows = [[name, match_id, team, timestamp] for match_id, team in match_picks.items()]
+    worksheet.append_rows(rows)
+
+
+def append_participant(name):
+    """
+    Adds a name to the 'participants' roster tab so they show up as a
+    pickable option in the bracket submission form. Creates the
+    'participants' tab automatically the first time anyone is added.
+    """
+    if not using_google_sheets():
+        raise RuntimeError(
+            "Google Sheets isn't configured yet, so the roster can't be "
+            "updated. Try again once the Sheet is connected."
+        )
+    gc = _get_gsheet_client()
+    sh = gc.open_by_url(st.secrets["sheet_url"])
+    worksheet = _get_or_create_worksheet(sh, "participants", ["name"])
+    worksheet.append_row([name])

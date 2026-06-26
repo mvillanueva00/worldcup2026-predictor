@@ -1,0 +1,32 @@
+round,match_id,team_a,team_b
+Round of 32,M1,South Africa,Canada
+Round of 32,M2,Netherlands,Morocco
+Round of 32,M3,Germany,TBD
+Round of 32,M4,France,TBD
+Round of 32,M5,TBD,TBD
+Round of 32,M6,USA,Bosnia and Herzegovina
+Round of 32,M7,TBD,TBD
+Round of 32,M8,TBD,TBD
+Round of 32,M9,Brazil,Japan
+Round of 32,M10,Ivory Coast,Norway
+Round of 32,M11,Mexico,TBD
+Round of 32,M12,TBD,TBD
+Round of 32,M13,Switzerland,TBD
+Round of 32,M14,TBD,TBD
+Round of 32,M15,Australia,TBD
+Round of 32,M16,Argentina,TBD
+Round of 16,M17,Winner M1,Winner M2
+Round of 16,M18,Winner M3,Winner M4
+Round of 16,M19,Winner M5,Winner M6
+Round of 16,M20,Winner M7,Winner M8
+Round of 16,M21,Winner M9,Winner M10
+Round of 16,M22,Winner M11,Winner M12
+Round of 16,M23,Winner M13,Winner M14
+Round of 16,M24,Winner M15,Winner M16
+Quarterfinal,M25,Winner M17,Winner M18
+Quarterfinal,M26,Winner M19,Winner M20
+Quarterfinal,M27,Winner M21,Winner M22
+Quarterfinal,M28,Winner M23,Winner M24
+Semifinal,M29,Winner M25,Winner M26
+Semifinal,M30,Winner M27,Winner M28
+Final,M31,Winner M29,Winner M30

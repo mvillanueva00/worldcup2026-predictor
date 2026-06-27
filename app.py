@@ -132,17 +132,12 @@ often each team ends up as champion - that's their championship odds.
             "to calculate. 10,000 is a good default."
         ),
     )
-    k_factor = st.slider(
-        "How much each result affects the ratings",
-        10, 60, 30,
-        help=(
-            "After a team wins or loses, this controls how much their "
-            "strength rating changes. A higher number means recent results "
-            "matter more (a single big win or loss swings things harder). "
-            "A lower number means ratings stay steadier over time. 30 is a "
-            "balanced default."
-        ),
-    )
+
+    # K=60 is the real-world standard used by official football Elo
+    # systems (eloratings.net) specifically for World Cup matches -
+    # everyone sees the same, most-accurate numbers with no setting to
+    # second-guess.
+    k_factor = 60
 
     st.divider()
 

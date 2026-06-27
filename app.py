@@ -26,6 +26,7 @@ import pandas as pd
 
 from elo_engine import build_current_ratings
 from simulation import monte_carlo_bracket, KNOCKOUT_ROUNDS_ORDER, sorted_bracket, resolve_slot
+from scoring import score_participants
 from sheets_io import (
     load_sheet_tab,
     append_result_row,
@@ -174,7 +175,9 @@ if unrecognized:
         + ", ".join(f"`{t}`" for t in unrecognized)
     )
 
-tab_predictor, tab_picks = st.tabs(["\U0001F3C6 Predictor", "\U0001F4DD Submit Your Bracket"])
+tab_predictor, tab_picks, tab_scoreboard = st.tabs(
+    ["\U0001F3C6 Predictor", "\U0001F4DD Submit Your Bracket", "\U0001F4CB Scoreboard"]
+)
 
 # ===========================================================================
 # TAB 1: Predictor (ratings, results, simulation)
@@ -541,6 +544,62 @@ with tab_picks:
 
             st.caption("Most popular champion picks so far:")
             st.bar_chart(champion_picks["pick"].value_counts())
+
+# ===========================================================================
+# TAB 3: Scoreboard
+# ===========================================================================
+with tab_scoreboard:
+    st.subheader("\U0001F4CB Bracket Challenge Scoreboard")
+    st.write(
+        "Live standings as real results come in. Correct picks earn more "
+        "points the later the round - a correct Final pick is worth way "
+        "more than a correct Round of 32 pick."
+    )
+    with st.expander("How scoring works"):
+        st.markdown(
+            """
+| Round | Points per correct pick |
+|---|---|
+| Round of 32 | 1 |
+| Round of 16 | 2 |
+| Quarterfinal | 4 |
+| Semifinal | 8 |
+| Final | 16 |
+
+A pick only counts once that match has actually been played in real
+life - picks for matches that haven't happened yet just don't add or
+subtract points until they're decided.
+
+**Champion Pick Status** shows whether the team someone picked to win
+the whole tournament has actually lost a real match yet:
+- \u2705 **Still Alive** - their champion pick hasn't lost (yet!)
+- \u274C **Eliminated** - their champion pick already lost a real match,
+  so they can't win the challenge anymore (but their bracket can still
+  earn points from any earlier rounds they got right).
+            """
+        )
+
+    if picks_df.empty or "name" not in picks_df.columns:
+        st.info("No brackets submitted yet - check back once the challenge gets going!")
+    else:
+        leaderboard = score_participants(bracket_df, results_df, picks_df)
+        if leaderboard.empty:
+            st.info("No brackets submitted yet - check back once the challenge gets going!")
+        else:
+            display_board = leaderboard.rename(columns={
+                "name": "Name",
+                "points": "Points",
+                "correct_picks": "Correct Picks",
+                "decided_picks": "Picks Decided So Far",
+                "champion_pick": "Champion Pick",
+                "champion_status": "Champion Pick Status",
+            }).reset_index(drop=True)
+            display_board.index = display_board.index + 1
+            display_board.index.name = "Rank"
+            st.dataframe(display_board, use_container_width=True)
+
+            st.caption("Points by participant:")
+            st.bar_chart(leaderboard.set_index("name")["points"])
 
 # ---------------------------------------------------------------------------
 # Footer

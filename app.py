@@ -243,51 +243,63 @@ with tab_predictor:
     st.divider()
     st.subheader("\u270F\ufe0f Add a New Match Result")
     st.warning(
-        "\U0001F512 **Reserved for Mark, Kiran, and Phillip.** Match results are "
-        "kept up to date by the three of us - no need for anyone else to enter "
-        "anything here."
+        "\U0001F512 **Reserved for Mark.** Match results are kept up to date "
+        "by Mark only - no need for anyone else to enter anything here."
     )
 
-    with st.expander("Open form (Mark / Kiran / Phillip only)"):
-        st.caption(
-            "Submitting this form saves the result directly to the shared "
-            "Google Sheet, so the ratings and predictions update for everyone "
-            "automatically."
-        )
+    with st.expander("Open form (PIN required)"):
+        entered_pin = st.text_input("Enter PIN to unlock", type="password", key="admin_pin_input")
+        correct_pin = None
+        try:
+            correct_pin = st.secrets.get("admin_pin")
+        except Exception:
+            correct_pin = None
 
-        with st.form("add_result_form", clear_on_submit=True):
-            c1, c2, c3, c4, c5, c6 = st.columns([2, 2, 1, 1, 1, 1.3])
-            team_options = sorted(teams_df["team"].tolist())
-            with c1:
-                team_a = st.selectbox("Team A", team_options)
-            with c2:
-                team_b = st.selectbox("Team B", team_options, index=1)
-            with c3:
-                score_a = st.number_input("Score A", min_value=0, max_value=20, step=1)
-            with c4:
-                score_b = st.number_input("Score B", min_value=0, max_value=20, step=1)
-            with c5:
-                stage = st.selectbox("Stage", ["Group", "Knockout"])
-            with c6:
-                match_date = st.date_input("Date")
-            submitted = st.form_submit_button("Save Result")
+        if not correct_pin:
+            st.info("No PIN configured yet - add `admin_pin` to secrets.toml to enable this form.")
+        elif entered_pin != correct_pin:
+            if entered_pin:
+                st.error("Incorrect PIN.")
+        else:
+            st.caption(
+                "Submitting this form saves the result directly to the shared "
+                "Google Sheet, so the ratings and predictions update for everyone "
+                "automatically."
+            )
 
-            if submitted:
-                if team_a == team_b:
-                    st.error("Team A and Team B must be different.")
-                else:
-                    try:
-                        append_result_row(
-                            team_a, team_b, int(score_a), int(score_b), stage.lower(), match_date
-                        )
-                        st.success("Saved! Refresh the page to see updated predictions.")
-                    except RuntimeError as e:
-                        st.error(str(e))
+            with st.form("add_result_form", clear_on_submit=True):
+                c1, c2, c3, c4, c5, c6 = st.columns([2, 2, 1, 1, 1, 1.3])
+                team_options = sorted(teams_df["team"].tolist())
+                with c1:
+                    team_a = st.selectbox("Team A", team_options)
+                with c2:
+                    team_b = st.selectbox("Team B", team_options, index=1)
+                with c3:
+                    score_a = st.number_input("Score A", min_value=0, max_value=20, step=1)
+                with c4:
+                    score_b = st.number_input("Score B", min_value=0, max_value=20, step=1)
+                with c5:
+                    stage = st.selectbox("Stage", ["Group", "Knockout"])
+                with c6:
+                    match_date = st.date_input("Date")
+                submitted = st.form_submit_button("Save Result")
 
-        st.divider()
-        st.markdown("**\U0001F4CB After every knockout match, do BOTH of these:**")
-        st.markdown(
-            """
+                if submitted:
+                    if team_a == team_b:
+                        st.error("Team A and Team B must be different.")
+                    else:
+                        try:
+                            append_result_row(
+                                team_a, team_b, int(score_a), int(score_b), stage.lower(), match_date
+                            )
+                            st.success("Saved! Refresh the page to see updated predictions.")
+                        except RuntimeError as e:
+                            st.error(str(e))
+
+            st.divider()
+            st.markdown("**\U0001F4CB After every knockout match, do BOTH of these:**")
+            st.markdown(
+                """
 1. **Log the score** using the form above, same as any group stage match.
 2. **Update the `bracket` tab** in the Google Sheet: find the slot that
    match feeds into (it'll say something like `Winner M3`) and replace it
@@ -301,18 +313,18 @@ happened, which throws off everyone's odds for later rounds.
 **Also check for `TBD` slots:** once the 8 third-place teams are
 finalized (and again before each new round), swap any `TBD` in the
 bracket tab for the real team name as soon as it's known.
-            """
-        )
-        st.markdown(
-            """
+                """
+            )
+            st.markdown(
+                """
 **Example:** South Africa beats Canada 2-1 in the Round of 32 (match M1).
 - Log it: `South Africa, Canada, 2, 1, Knockout`
 - M1's winner feeds into match **M17** in the Round of 16. In the
   bracket tab, find the **M17** row - column `team_a` currently says
   `Winner M1`. Type over it with `South Africa`. That's the only cell
   that needs to change.
-            """
-        )
+                """
+            )
 
     # -----------------------------------------------------------------------
     # Bracket simulation

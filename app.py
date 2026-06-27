@@ -175,8 +175,8 @@ if unrecognized:
         + ", ".join(f"`{t}`" for t in unrecognized)
     )
 
-tab_predictor, tab_picks, tab_scoreboard = st.tabs(
-    ["\U0001F3C6 Predictor", "\U0001F4DD Submit Your Bracket", "\U0001F4CB Scoreboard"]
+tab_predictor, tab_picks, tab_scoreboard, tab_admin = st.tabs(
+    ["\U0001F3C6 Predictor", "\U0001F4DD Submit Your Bracket", "\U0001F4CB Scoreboard", "\U0001F512 Admin"]
 )
 
 # ===========================================================================
@@ -236,95 +236,6 @@ with tab_predictor:
 
         st.dataframe(display_results, use_container_width=True, height=420)
         st.caption(f"{len(results_df)} matches recorded so far.")
-
-    # -----------------------------------------------------------------------
-    # Add a new result
-    # -----------------------------------------------------------------------
-    st.divider()
-    st.subheader("\u270F\ufe0f Add a New Match Result")
-    st.warning(
-        "\U0001F512 **Reserved for Mark.** Match results are kept up to date "
-        "by Mark only - no need for anyone else to enter anything here."
-    )
-
-    with st.expander("Open form (PIN required)"):
-        entered_pin = st.text_input("Enter PIN to unlock", type="password", key="admin_pin_input")
-        correct_pin = None
-        try:
-            correct_pin = st.secrets.get("admin_pin")
-        except Exception:
-            correct_pin = None
-
-        if not correct_pin:
-            st.info("No PIN configured yet - add `admin_pin` to secrets.toml to enable this form.")
-        elif entered_pin != correct_pin:
-            if entered_pin:
-                st.error("Incorrect PIN.")
-        else:
-            st.caption(
-                "Submitting this form saves the result directly to the shared "
-                "Google Sheet, so the ratings and predictions update for everyone "
-                "automatically."
-            )
-
-            with st.form("add_result_form", clear_on_submit=True):
-                c1, c2, c3, c4, c5, c6 = st.columns([2, 2, 1, 1, 1, 1.3])
-                team_options = sorted(teams_df["team"].tolist())
-                with c1:
-                    team_a = st.selectbox("Team A", team_options)
-                with c2:
-                    team_b = st.selectbox("Team B", team_options, index=1)
-                with c3:
-                    score_a = st.number_input("Score A", min_value=0, max_value=20, step=1)
-                with c4:
-                    score_b = st.number_input("Score B", min_value=0, max_value=20, step=1)
-                with c5:
-                    stage = st.selectbox("Stage", ["Group", "Knockout"])
-                with c6:
-                    match_date = st.date_input("Date")
-                submitted = st.form_submit_button("Save Result")
-
-                if submitted:
-                    if team_a == team_b:
-                        st.error("Team A and Team B must be different.")
-                    else:
-                        try:
-                            append_result_row(
-                                team_a, team_b, int(score_a), int(score_b), stage.lower(), match_date
-                            )
-                            st.success("Saved! Refresh the page to see updated predictions.")
-                        except RuntimeError as e:
-                            st.error(str(e))
-
-            st.divider()
-            st.markdown("**\U0001F4CB After every knockout match, do BOTH of these:**")
-            st.markdown(
-                """
-1. **Log the score** using the form above, same as any group stage match.
-2. **Update the `bracket` tab** in the Google Sheet: find the slot that
-   match feeds into (it'll say something like `Winner M3`) and replace it
-   with the actual winning team's name.
-
-**Why both steps matter:** Step 1 keeps the strength ratings accurate.
-Step 2 tells the simulation "this game is already decided, stop guessing
-it" - without it, the app will keep simulating a match that already
-happened, which throws off everyone's odds for later rounds.
-
-**Also check for `TBD` slots:** once the 8 third-place teams are
-finalized (and again before each new round), swap any `TBD` in the
-bracket tab for the real team name as soon as it's known.
-                """
-            )
-            st.markdown(
-                """
-**Example:** South Africa beats Canada 2-1 in the Round of 32 (match M1).
-- Log it: `South Africa, Canada, 2, 1, Knockout`
-- M1's winner feeds into match **M17** in the Round of 16. In the
-  bracket tab, find the **M17** row - column `team_a` currently says
-  `Winner M1`. Type over it with `South Africa`. That's the only cell
-  that needs to change.
-                """
-            )
 
     # -----------------------------------------------------------------------
     # Bracket simulation
@@ -398,6 +309,11 @@ with tab_picks:
         "Predictor tab for the odds and just go with whoever's rated "
         "highest at each step."
     )
+    st.caption(
+        "Not seeing your name in the dropdown below? Everyone who signed "
+        "up has already been added - message Mark directly and he can "
+        "add you."
+    )
 
     participants_df = load_sheet_tab("participants")
     picks_df = load_sheet_tab("picks")
@@ -413,55 +329,73 @@ with tab_picks:
     # -----------------------------------------------------------------------
     # Roster management (restricted)
     # -----------------------------------------------------------------------
-    with st.expander("Manage participant roster (Mark / Kiran / Phillip only)"):
-        st.caption(
-            "Add anyone who decides to join the challenge, even after it's "
-            "started. They'll show up in the dropdown below once added."
+    with st.expander("Manage participant roster (PIN required)"):
+        entered_pin_roster = st.text_input(
+            "Enter PIN to unlock", type="password", key="admin_pin_input_roster"
         )
-        with st.form("add_participant_form", clear_on_submit=True):
-            new_name = st.text_input("Name to add")
-            add_submitted = st.form_submit_button("Add to Roster")
-            if add_submitted:
-                if not new_name.strip():
-                    st.error("Enter a name first.")
-                elif new_name.strip() in roster:
-                    st.warning(f"{new_name.strip()} is already on the roster.")
-                else:
+        correct_pin_roster = None
+        try:
+            correct_pin_roster = st.secrets.get("admin_pin")
+        except Exception:
+            correct_pin_roster = None
+
+        if not correct_pin_roster:
+            st.info("No PIN configured yet - add `admin_pin` to secrets.toml to enable this.")
+        elif entered_pin_roster != correct_pin_roster:
+            if entered_pin_roster:
+                st.error("Incorrect PIN.")
+        else:
+            st.caption(
+                "Add anyone who decides to join the challenge. Heads up: "
+                "once real Round of 32 matches start (June 28), adding "
+                "someone new means they'd be filling out picks with "
+                "knowledge of already-played games - not exactly fair to "
+                "everyone who submitted blind beforehand."
+            )
+            with st.form("add_participant_form", clear_on_submit=True):
+                new_name = st.text_input("Name to add")
+                add_submitted = st.form_submit_button("Add to Roster")
+                if add_submitted:
+                    if not new_name.strip():
+                        st.error("Enter a name first.")
+                    elif new_name.strip() in roster:
+                        st.warning(f"{new_name.strip()} is already on the roster.")
+                    else:
+                        try:
+                            append_participant(new_name.strip())
+                            st.success(f"Added {new_name.strip()}! Refresh to see them in the list.")
+                        except RuntimeError as e:
+                            st.error(str(e))
+
+            if roster:
+                status_rows = [
+                    {"Name": n, "Status": "\u2705 Submitted" if n in locked_names else "\u23F3 Not yet submitted"}
+                    for n in roster
+                ]
+                st.dataframe(pd.DataFrame(status_rows), use_container_width=True, hide_index=True)
+
+                st.markdown("**Remove a participant:**")
+                remove_col1, remove_col2 = st.columns([3, 1])
+                with remove_col1:
+                    name_to_remove = st.selectbox(
+                        "Select a name to remove", roster, key="remove_participant_select"
+                    )
+                with remove_col2:
+                    st.write("")  # vertical spacer to align the button with the dropdown
+                    confirm_remove = st.checkbox("Confirm", key="confirm_remove_checkbox")
+                if name_to_remove in locked_names:
+                    st.caption(
+                        f"\u26A0\ufe0f {name_to_remove} already submitted picks - removing "
+                        f"them from the roster won't delete their saved picks."
+                    )
+                if st.button("Remove from Roster", disabled=not confirm_remove):
                     try:
-                        append_participant(new_name.strip())
-                        st.success(f"Added {new_name.strip()}! Refresh to see them in the list.")
+                        remove_participant(name_to_remove)
+                        st.success(f"Removed {name_to_remove}. Refresh to update the list.")
                     except RuntimeError as e:
                         st.error(str(e))
-
-        if roster:
-            status_rows = [
-                {"Name": n, "Status": "\u2705 Submitted" if n in locked_names else "\u23F3 Not yet submitted"}
-                for n in roster
-            ]
-            st.dataframe(pd.DataFrame(status_rows), use_container_width=True, hide_index=True)
-
-            st.markdown("**Remove a participant:**")
-            remove_col1, remove_col2 = st.columns([3, 1])
-            with remove_col1:
-                name_to_remove = st.selectbox(
-                    "Select a name to remove", roster, key="remove_participant_select"
-                )
-            with remove_col2:
-                st.write("")  # vertical spacer to align the button with the dropdown
-                confirm_remove = st.checkbox("Confirm", key="confirm_remove_checkbox")
-            if name_to_remove in locked_names:
-                st.caption(
-                    f"\u26A0\ufe0f {name_to_remove} already submitted picks - removing "
-                    f"them from the roster won't delete their saved picks."
-                )
-            if st.button("Remove from Roster", disabled=not confirm_remove):
-                try:
-                    remove_participant(name_to_remove)
-                    st.success(f"Removed {name_to_remove}. Refresh to update the list.")
-                except RuntimeError as e:
-                    st.error(str(e))
-        else:
-            st.caption("No participants added yet.")
+            else:
+                st.caption("No participants added yet.")
 
     st.divider()
 
@@ -612,6 +546,92 @@ the whole tournament has actually lost a real match yet:
 
             st.caption("Points by participant:")
             st.bar_chart(leaderboard.set_index("name")["points"])
+
+# ===========================================================================
+# TAB 4: Admin (Mark only)
+# ===========================================================================
+with tab_admin:
+    st.subheader("\U0001F512 Admin")
+    st.caption("PIN-protected - this is where match results get logged.")
+
+    entered_pin_admin = st.text_input("Enter PIN to unlock", type="password", key="admin_pin_input_main")
+    correct_pin_admin = None
+    try:
+        correct_pin_admin = st.secrets.get("admin_pin")
+    except Exception:
+        correct_pin_admin = None
+
+    if not correct_pin_admin:
+        st.info("No PIN configured yet - add `admin_pin` to secrets.toml to enable this form.")
+    elif entered_pin_admin != correct_pin_admin:
+        if entered_pin_admin:
+            st.error("Incorrect PIN.")
+    else:
+        st.subheader("\u270F\ufe0f Add a New Match Result")
+        st.caption(
+            "Submitting this form saves the result directly to the shared "
+            "Google Sheet, so the ratings and predictions update for everyone "
+            "automatically."
+        )
+
+        with st.form("add_result_form", clear_on_submit=True):
+            c1, c2, c3, c4, c5, c6 = st.columns([2, 2, 1, 1, 1, 1.3])
+            team_options = sorted(teams_df["team"].tolist())
+            with c1:
+                team_a = st.selectbox("Team A", team_options)
+            with c2:
+                team_b = st.selectbox("Team B", team_options, index=1)
+            with c3:
+                score_a = st.number_input("Score A", min_value=0, max_value=20, step=1)
+            with c4:
+                score_b = st.number_input("Score B", min_value=0, max_value=20, step=1)
+            with c5:
+                stage = st.selectbox("Stage", ["Group", "Knockout"])
+            with c6:
+                match_date = st.date_input("Date")
+            submitted = st.form_submit_button("Save Result")
+
+            if submitted:
+                if team_a == team_b:
+                    st.error("Team A and Team B must be different.")
+                else:
+                    try:
+                        append_result_row(
+                            team_a, team_b, int(score_a), int(score_b), stage.lower(), match_date
+                        )
+                        st.success("Saved! Refresh the page to see updated predictions.")
+                    except RuntimeError as e:
+                        st.error(str(e))
+
+        st.divider()
+        st.markdown("**\U0001F4CB After every knockout match, do BOTH of these:**")
+        st.markdown(
+            """
+1. **Log the score** using the form above, same as any group stage match.
+2. **Update the `bracket` tab** in the Google Sheet: find the slot that
+   match feeds into (it'll say something like `Winner M3`) and replace it
+   with the actual winning team's name.
+
+**Why both steps matter:** Step 1 keeps the strength ratings accurate.
+Step 2 tells the simulation "this game is already decided, stop guessing
+it" - without it, the app will keep simulating a match that already
+happened, which throws off everyone's odds for later rounds.
+
+**Also check for `TBD` slots:** once the 8 third-place teams are
+finalized (and again before each new round), swap any `TBD` in the
+bracket tab for the real team name as soon as it's known.
+            """
+        )
+        st.markdown(
+            """
+**Example:** South Africa beats Canada 2-1 in the Round of 32 (match M1).
+- Log it: `South Africa, Canada, 2, 1, Knockout`
+- M1's winner feeds into match **M17** in the Round of 16. In the
+  bracket tab, find the **M17** row - column `team_a` currently says
+  `Winner M1`. Type over it with `South Africa`. That's the only cell
+  that needs to change.
+            """
+        )
 
 # ---------------------------------------------------------------------------
 # Footer

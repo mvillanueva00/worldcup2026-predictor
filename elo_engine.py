@@ -36,10 +36,22 @@ def goal_diff_multiplier(goal_diff: int) -> float:
         return (11 + gd) / 8.0
 
 
-def update_ratings(rating_a, rating_b, score_a, score_b, k=30):
+HOST_NATIONS = {"USA", "Mexico", "Canada"}
+HOST_ADVANTAGE = 100  # standard Elo football home-advantage bump
+
+
+def update_ratings(rating_a, rating_b, score_a, score_b, k=30, team_a=None, team_b=None):
     """
     Update two teams' ratings after a single match.
     score_a/score_b are goals scored. Returns (new_rating_a, new_rating_b).
+
+    World Cup 2026 is co-hosted by the USA, Mexico, and Canada - the
+    standard Elo football methodology gives a host nation a +100 boost
+    to its EXPECTED score calculation only (not a permanent rating
+    change), reflecting home-crowd advantage. This doesn't apply to a
+    real "home" match for the other two co-hosts playing each other,
+    since the tournament is genuinely neutral-ish for everyone except
+    the specific host nation's own matches.
     """
     if score_a > score_b:
         result_a = 1.0
@@ -48,7 +60,13 @@ def update_ratings(rating_a, rating_b, score_a, score_b, k=30):
     else:
         result_a = 0.5
 
-    exp_a = expected_score(rating_a, rating_b)
+    adj_rating_a, adj_rating_b = rating_a, rating_b
+    if team_a in HOST_NATIONS:
+        adj_rating_a = rating_a + HOST_ADVANTAGE
+    if team_b in HOST_NATIONS:
+        adj_rating_b = rating_b + HOST_ADVANTAGE
+
+    exp_a = expected_score(adj_rating_a, adj_rating_b)
     mult = goal_diff_multiplier(score_a - score_b)
 
     change = k * mult * (result_a - exp_a)
@@ -77,7 +95,7 @@ def build_current_ratings(teams_df: pd.DataFrame, results_df: pd.DataFrame, k=30
             continue
         sa, sb = float(row["score_a"]), float(row["score_b"])
         ra, rb = ratings[a], ratings[b]
-        new_ra, new_rb = update_ratings(ra, rb, sa, sb, k=k)
+        new_ra, new_rb = update_ratings(ra, rb, sa, sb, k=k, team_a=a, team_b=b)
         ratings[a] = new_ra
         ratings[b] = new_rb
 

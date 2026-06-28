@@ -427,51 +427,65 @@ with tab_picks:
             else:
                 ordered_bracket = sorted_bracket(bracket_df)
 
-                with st.form(f"submit_bracket_form_{selected_name}"):
-                    st.markdown(f"**{selected_name}'s picks:**")
-                    user_picks = {}
-                    bracket_ready = True
+                st.markdown(f"**{selected_name}'s picks:**")
+                st.caption(
+                    "Pick a winner for each match below. As you pick, the next "
+                    "round automatically updates to show YOUR winner advancing - "
+                    "this is a real bracket, not pre-decided for you!"
+                )
+                user_picks = {}
+                bracket_ready = True
 
-                    for _, row in ordered_bracket.iterrows():
-                        team_a = resolve_slot(row["team_a"], user_picks)
-                        team_b = resolve_slot(row["team_b"], user_picks)
-                        if team_a is None or team_b is None:
-                            bracket_ready = False
-                            st.caption(
-                                f"\u23F3 {row['round']} match {row['match_id']} isn't "
-                                f"confirmed yet - check back closer to that round."
-                            )
-                            continue
-                        choice = st.radio(
-                            f"**{row['round']}**: {team_a} vs {team_b}",
-                            [team_a, team_b],
-                            horizontal=True,
-                            key=f"{selected_name}_{row['match_id']}",
+                for _, row in ordered_bracket.iterrows():
+                    team_a = resolve_slot(row["team_a"], user_picks)
+                    team_b = resolve_slot(row["team_b"], user_picks)
+                    if team_a is None or team_b is None:
+                        bracket_ready = False
+                        st.caption(
+                            f"\u23F3 {row['round']} match {row['match_id']} isn't "
+                            f"confirmed yet - check back closer to that round."
                         )
-                        user_picks[row["match_id"]] = choice
-
-                    st.warning(
-                        "\u26A0\ufe0f Once you submit, your picks are final and "
-                        "cannot be edited - double check before locking in!"
+                        continue
+                    choice = st.radio(
+                        f"**{row['round']}**: {team_a} vs {team_b}",
+                        [team_a, team_b],
+                        horizontal=True,
+                        key=f"{selected_name}_{row['match_id']}",
                     )
-                    final_submit = st.form_submit_button("\U0001F512 Lock In My Picks", type="primary")
+                    user_picks[row["match_id"]] = choice
 
-                    if final_submit:
-                        if not bracket_ready:
-                            st.error(
-                                "Some matches in the bracket aren't confirmed yet, "
-                                "so a full bracket can't be locked in. Try again "
-                                "once the Round of 32 is fully set."
+                st.divider()
+                st.warning(
+                    "\u26A0\ufe0f Once you submit, your picks are final and "
+                    "cannot be edited - double check before locking in!"
+                )
+                confirm_lock_in = st.checkbox(
+                    "I've double-checked my picks and I'm ready to lock them in",
+                    key=f"confirm_lock_{selected_name}",
+                )
+                final_submit = st.button(
+                    "\U0001F512 Lock In My Picks",
+                    type="primary",
+                    disabled=not confirm_lock_in,
+                    key=f"lock_button_{selected_name}",
+                )
+
+                if final_submit:
+                    if not bracket_ready:
+                        st.error(
+                            "Some matches in the bracket aren't confirmed yet, "
+                            "so a full bracket can't be locked in. Try again "
+                            "once the Round of 32 is fully set."
+                        )
+                    else:
+                        try:
+                            append_pick_rows(selected_name, user_picks)
+                            st.success(
+                                f"Locked in! Good luck, {selected_name}. "
+                                f"Refresh the page to see your saved picks."
                             )
-                        else:
-                            try:
-                                append_pick_rows(selected_name, user_picks)
-                                st.success(
-                                    f"Locked in! Good luck, {selected_name}. "
-                                    f"Refresh the page to see your saved picks."
-                                )
-                            except RuntimeError as e:
-                                st.error(str(e))
+                        except RuntimeError as e:
+                            st.error(str(e))
 
     st.divider()
     st.subheader("\U0001F440 Everyone's Champion Picks")

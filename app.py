@@ -267,13 +267,12 @@ with tab_predictor:
             st.dataframe(bracket_display, use_container_width=True)
 
         st.caption(
-            f"\u23F1\ufe0f Heads up: running {n_sims:,} simulations can take a "
-            f"few minutes, not seconds - it's genuinely replaying the rest of "
-            f"the World Cup that many times. Hang tight after clicking below!"
+            f"\u23F1\ufe0f Running {n_sims:,} simulations usually takes a few "
+            f"seconds to about half a minute, depending on how many you ask for."
         )
 
         if st.button("\U0001F3B2 Run the Simulation", type="primary"):
-            with st.spinner(f"Simulating the rest of the World Cup {n_sims:,} times... this can take a few minutes"):
+            with st.spinner(f"Simulating the rest of the World Cup {n_sims:,} times..."):
                 sim_results = monte_carlo_bracket(bracket_df, ratings, n_sims=n_sims)
 
             st.subheader("Championship Odds")

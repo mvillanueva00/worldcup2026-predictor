@@ -23,6 +23,7 @@ import base64
 import os
 import streamlit as st
 import pandas as pd
+import altair as alt
 
 from elo_engine import build_current_ratings
 from simulation import monte_carlo_bracket, KNOCKOUT_ROUNDS_ORDER, sorted_bracket, resolve_slot
@@ -246,12 +247,6 @@ with tab_predictor:
         "This runs the simulation described in the sidebar and shows how often "
         "each team comes out on top."
     )
-    st.caption(
-        "\u2139\ufe0f A few Round of 32 matchups still show 'TBD' since the "
-        "8 best third-place teams haven't been finalized yet. Teams stuck "
-        "behind a TBD slot will show 0% for now - that'll update automatically "
-        "once their opponent is confirmed."
-    )
 
     required_cols = {"round", "match_id", "team_a", "team_b"}
     if not required_cols.issubset(bracket_df.columns):
@@ -271,8 +266,14 @@ with tab_predictor:
             })
             st.dataframe(bracket_display, use_container_width=True)
 
+        st.caption(
+            f"\u23F1\ufe0f Heads up: running {n_sims:,} simulations can take a "
+            f"few minutes, not seconds - it's genuinely replaying the rest of "
+            f"the World Cup that many times. Hang tight after clicking below!"
+        )
+
         if st.button("\U0001F3B2 Run the Simulation", type="primary"):
-            with st.spinner(f"Simulating the rest of the World Cup {n_sims:,} times..."):
+            with st.spinner(f"Simulating the rest of the World Cup {n_sims:,} times... this can take a few minutes"):
                 sim_results = monte_carlo_bracket(bracket_df, ratings, n_sims=n_sims)
 
             st.subheader("Championship Odds")
@@ -295,7 +296,16 @@ with tab_predictor:
             st.dataframe(display_df, use_container_width=True, height=400)
 
             st.caption("Top 10 teams by championship odds:")
-            st.bar_chart(sim_results.set_index("team")["champion_pct"].head(10))
+            top10 = sim_results.head(10).sort_values("champion_pct", ascending=True)
+            chart = (
+                alt.Chart(top10)
+                .mark_bar()
+                .encode(
+                    x=alt.X("champion_pct:Q", title="Championship odds (%)"),
+                    y=alt.Y("team:N", sort=None, title=None),
+                )
+            )
+            st.altair_chart(chart, use_container_width=True)
 
 # ===========================================================================
 # TAB 2: Submit Your Bracket

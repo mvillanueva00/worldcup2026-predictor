@@ -203,3 +203,29 @@ def remove_participant(name):
         if all_values[row_idx - 1] and all_values[row_idx - 1][0].strip() == name.strip():
             worksheet.delete_rows(row_idx)
     load_sheet_tab.clear()
+
+
+def clear_picks_for_name(name):
+    """
+    Deletes every saved pick row for a given name from the 'picks' tab,
+    effectively un-locking them so they can resubmit a fresh bracket.
+    Used for corrections (e.g. a bracket structure fix after they already
+    submitted) - not meant for routine use.
+    """
+    if not using_google_sheets():
+        raise RuntimeError(
+            "Google Sheets isn't configured yet, so picks can't be cleared."
+        )
+    gc = _get_gsheet_client()
+    sh = gc.open_by_url(st.secrets["sheet_url"])
+    worksheet = _get_or_create_worksheet(sh, "picks", ["name", "match_id", "pick", "timestamp"])
+
+    all_values = worksheet.get_all_values()
+    removed = 0
+    # Delete from the bottom up so row numbers don't shift mid-loop
+    for row_idx in range(len(all_values), 1, -1):  # skip header row 1
+        if all_values[row_idx - 1] and all_values[row_idx - 1][0].strip() == name.strip():
+            worksheet.delete_rows(row_idx)
+            removed += 1
+    load_sheet_tab.clear()
+    return removed

@@ -34,6 +34,7 @@ from sheets_io import (
     append_pick_rows,
     append_participant,
     remove_participant,
+    clear_picks_for_name,
     using_google_sheets,
 )
 
@@ -655,6 +656,41 @@ bracket tab for the real team name as soon as it's known.
   that needs to change.
             """
         )
+
+        st.divider()
+        st.subheader("\U0001F501 Clear Someone's Picks (allow resubmission)")
+        st.caption(
+            "Only use this for genuine corrections - e.g. the bracket "
+            "structure itself was wrong and needs to be fixed after someone "
+            "already submitted. This deletes their saved picks entirely so "
+            "they can fill out a fresh bracket. There's no undo, so double "
+            "check the name before clearing."
+        )
+        picks_df_admin = load_sheet_tab("picks")
+        names_with_picks = []
+        if not picks_df_admin.empty and "name" in picks_df_admin.columns:
+            names_with_picks = sorted(picks_df_admin["name"].unique())
+
+        if not names_with_picks:
+            st.caption("Nobody has submitted picks yet.")
+        else:
+            clear_col1, clear_col2 = st.columns([3, 1])
+            with clear_col1:
+                name_to_clear = st.selectbox(
+                    "Select a name to clear", names_with_picks, key="clear_picks_select"
+                )
+            with clear_col2:
+                st.write("")
+                confirm_clear = st.checkbox("Confirm", key="confirm_clear_picks_checkbox")
+            if st.button("Clear Their Picks", disabled=not confirm_clear):
+                try:
+                    removed = clear_picks_for_name(name_to_clear)
+                    st.success(
+                        f"Cleared {removed} saved pick(s) for {name_to_clear}. "
+                        f"They can now resubmit a fresh bracket."
+                    )
+                except RuntimeError as e:
+                    st.error(str(e))
 
 # ---------------------------------------------------------------------------
 # Footer
